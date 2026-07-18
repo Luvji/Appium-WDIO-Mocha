@@ -17,4 +17,9 @@ export const authData = Object.freeze({
   lockedAccount: Object.freeze({
     expectedMessage: "Your account has been locked.",
   }),
+
+  logoutConfirmation: Object.freeze({
+    title: "Log out?",
+    message: "You will return to the sign-in screen.",
+  }),
 });

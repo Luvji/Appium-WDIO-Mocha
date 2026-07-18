@@ -9,10 +9,12 @@
     "driver:android:install": "APPIUM_HOME=$PWD/.appium appium driver install uiautomator2",
     "driver:list": "APPIUM_HOME=$PWD/.appium appium driver list --installed",
     "doctor:android": "APPIUM_HOME=$PWD/.appium appium driver doctor uiautomator2",
-    "test:android": "node --env-file=.env ./node_modules/mocha/bin/mocha.js --timeout 120000 \"test/specs/android/**/*.spec.js\""
+    "test:android": "node --env-file=.env ./node_modules/mocha/bin/mocha.js --timeout 120000 \"test/specs/android/**/*.spec.js\"",
+    "test:android:wdio": "node --env-file=.env ./node_modules/@wdio/cli/bin/wdio.js run ./wdio.android.conf.js"
   },
   "devDependencies": {
     "@wdio/cli": "^9.29.1",
+    "@wdio/globals": "^9.29.1",
     "@wdio/local-runner": "^9.29.1",
     "@wdio/mocha-framework": "^9.29.1",
     "@wdio/spec-reporter": "^9.29.1",

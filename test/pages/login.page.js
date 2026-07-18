@@ -5,6 +5,10 @@ export class LoginPage extends BasePage {
     return "~startup_username";
   }
 
+  get username() {
+    return this.element(this.usernameSelector);
+  }
+
   get passwordSelector() {
     return "~startup_password";
   }
@@ -21,10 +25,18 @@ export class LoginPage extends BasePage {
     return "~startup_login_result";
   }
 
+  get invalidPasswordMessage() {
+    return this.element(this.invalidPasswordMessageSelector);
+  }
+
   async waitUntilLoaded() {
     await this.waitUntilDisplayed(this.usernameSelector, 20_000);
     await this.waitUntilDisplayed(this.passwordSelector, 20_000);
     await this.waitUntilDisplayed(this.loginButtonSelector, 20_000);
+  }
+
+  async isLoaded() {
+    return this.isDisplayed(this.usernameSelector);
   }
 
   async login(username, password) {

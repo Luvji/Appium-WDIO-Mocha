@@ -22,7 +22,7 @@ describe("Login", function () {
 
     loginPage = new LoginPage(driver);
     dashboardPage = new DashboardPage(driver);
-    authFlow = new AuthFlow(loginPage, dashboardPage);
+    authFlow = new AuthFlow(loginPage, dashboardPage,authenticationLabPage);
     validUser = getValidUser();
   });
 

@@ -1,21 +1,11 @@
-import {
-  requiredEnvironmentVariable,
-} from '../config/environment.js';
+import { requiredEnvironmentVariable } from "../config/environment.js";
 
 export function getValidUser() {
   return {
-    username:
-      requiredEnvironmentVariable(
-        'TEST_USERNAME',
-      ),
-
-    password:
-      requiredEnvironmentVariable(
-        'TEST_PASSWORD',
-      ),
+    username: requiredEnvironmentVariable("TEST_USERNAME"),
+    password: requiredEnvironmentVariable("TEST_PASSWORD"),
   };
 }
-
 
 // function requiredEnvironmentVariable(name) {
 //   const value = process.env[name];

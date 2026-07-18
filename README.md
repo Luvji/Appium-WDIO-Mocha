@@ -1,194 +1,472 @@
-# Appium + Mocha: minimal Android setup
+# Appium Playground automation
 
-This project deliberately starts with Android's built-in **Settings** app. You do
-not need an APK yet, so each failure belongs to the automation setup rather than
-to app installation.
+This project is a learning-oriented mobile automation framework for Android,
+using Appium, WebdriverIO, and Mocha. It currently supports:
 
-## 1. Understand the layers
+- Local Android emulators through a project-local Appium server
+- LambdaTest Android devices
+- Page objects, flows, and feature-scoped test data
+- Direct Mocha execution with standalone WebdriverIO
+- An incremental migration to the WDIO runner
 
-The command travels through these layers:
+iOS support is planned. Shared test data, flows, and accessibility identifiers
+should remain platform-neutral so that adding XCUITest does not require a
+framework redesign.
+
+## Architecture
+
+### Current standalone suite
 
 ```text
-Mocha test
-  -> WebdriverIO client
-    -> Appium server
-      -> UiAutomator2 driver
-        -> Android emulator/device
-          -> Settings app
+Mocha runner
+  -> test hooks call WebdriverIO remote()
+    -> local Appium or LambdaTest
+      -> UiAutomator2
+        -> Android app
 ```
 
-- **Mocha** discovers tests and supplies `describe`, `it`, setup, teardown, and
-  timeouts. It does not control phones.
-- **WebdriverIO** is the JavaScript WebDriver client. Calls such as `$()` are
-  translated into WebDriver HTTP requests.
-- **Appium** is the server and common protocol layer. It accepts those requests
-  and routes them to a platform driver.
-- **UiAutomator2** is the Android-specific Appium driver. It translates generic
-  Appium commands into Android automation actions.
-- **Capabilities** describe the session you want: platform, driver, device, and
-  app. They are data, not test steps.
+Mocha discovers specs and runs `describe`, `it`, and hooks. The project session
+helper creates and deletes WebDriver sessions. WebdriverIO acts as the client
+that converts page-object commands into WebDriver requests.
 
-Keeping these layers separate helps diagnose failures: Mocha assertion failures,
-client/server connection failures, driver failures, and device failures each
-point to a different layer.
+Run this architecture with:
 
-## 2. Install the JavaScript dependencies
+```bash
+npm run test:android
+```
 
-Requires Node.js 20.19 or newer (this project uses Appium 3).
+### WDIO migration smoke suite
+
+```text
+WDIO runner
+  -> creates a worker and Appium session
+    -> starts Mocha inside the worker
+      -> Mocha runs the spec
+        -> page objects use WDIO's managed browser/driver
+```
+
+WDIO owns session and worker orchestration, while Mocha remains the test
+framework. The current migration smoke test runs with:
+
+```bash
+npm run test:android:wdio
+```
+
+The standalone command remains available until all specs have migrated.
+
+## Responsibilities
+
+```text
+test/config/       environment, execution target, servers, and capabilities
+test/data/         fixed feature inputs and expected UI values
+test/factories/    fresh generated entities, when future tests require them
+test/pages/        selectors and operations for one screen
+test/flows/        multi-page business or state transitions
+test/specs/        scenarios and assertions
+test/support/      standalone session lifecycle helpers
+wdio.android.conf.js
+                   WDIO runner and Mocha adapter configuration
+```
+
+The main boundaries are:
+
+- Page objects return application state and perform screen actions.
+- Flows coordinate multiple pages, such as login followed by dashboard loading.
+- Specs own assertions and decide which test data is correct.
+- Static data modules must not contain selectors, driver objects, or mutable
+  runtime state.
+- Secrets and environment-specific accounts remain in `.env`.
+
+## Installation
+
+Requires Node.js 20.19 or newer.
 
 ```bash
 npm install
-```
-
-Why: `package.json` records the tools and `package-lock.json` pins the complete
-dependency tree, so another machine can reproduce it with `npm ci`.
-
-## 3. Install the Android platform driver
-
-```bash
 npm run driver:android:install
 npm run driver:list
 npm run doctor:android
 ```
 
-Why: Appium's server is platform-neutral; UiAutomator2 is installed separately.
-This project uses `.appium/` as a local Appium home so drivers do not depend on a
-user's global setup. The doctor command checks Android SDK and Java prerequisites.
+Appium and UiAutomator2 use the project-local `.appium/` directory. This avoids
+depending on a user's global Appium driver installation.
 
-## 4. Start a device
+## Environment configuration
 
-Create and boot an Android Virtual Device in Android Studio, or connect a physical
-device with USB debugging enabled. Verify it before involving Appium:
+Create `.env` from `.env.example`. Do not commit real credentials.
+
+Local Android requires:
+
+```env
+EXECUTION_TARGET=local
+ANDROID_APP_PACKAGE=com.example.appiumplayground
+ANDROID_APP_ACTIVITY=.MainActivity
+TEST_USERNAME=
+TEST_PASSWORD=
+```
+
+Optional local device selection:
+
+```env
+ANDROID_UDID=emulator-5554
+ANDROID_DEVICE_NAME=Android Emulator
+ANDROID_PLATFORM_VERSION=
+```
+
+`ANDROID_APP_WAIT_ACTIVITY` is optional. `appActivity` tells Appium which
+activity to start; `appWaitActivity` is only needed when startup redirects
+through another Android activity, such as a splash or login activity.
+
+LambdaTest requires:
+
+```env
+EXECUTION_TARGET=lambdatest
+LT_USERNAME=
+LT_ACCESS_KEY=
+LT_APP_ID=lt://APP...
+LT_DEVICE_NAME=Galaxy S23
+LT_PLATFORM_VERSION=13
+LT_BUILD_NAME=Appium Playground
+TEST_USERNAME=
+TEST_PASSWORD=
+```
+
+The uploaded `LT_APP_ID` must refer to the same APK build whose accessibility
+identifiers the tests expect.
+
+## Running locally
+
+Boot an emulator and verify it:
 
 ```bash
 adb devices -l
 ```
 
-You need exactly one line whose state is `device`. `offline` means it has not
-finished connecting; `unauthorized` means the physical phone still needs approval.
-
-## 5. Start Appium
-
-In terminal 1:
+Start Appium in terminal 1:
 
 ```bash
 npm run appium
 ```
 
-Leave it running. Appium listens on `http://127.0.0.1:4723` by default. Keeping
-the server in its own terminal makes its request and driver logs visible.
-
-## 6. Run the test
-
-In terminal 2:
+Run the established standalone suite in terminal 2:
 
 ```bash
 npm run test:android
 ```
 
-The test creates a session in `before`, verifies both the active Android package
-and a visible UI element, then closes the session in `after`. Teardown matters:
-abandoned sessions consume server/device resources and make later tests confusing.
-
-The first useful test has two checks on purpose:
-
-1. `getCurrentPackage()` checks application state without relying on the screen.
-2. The `UiSelector` checks something a user can see.
-
-The selector assumes an English-language emulator. On another language, replace
-`Settings` with the displayed localized title. In your own app, prefer stable
-accessibility IDs over visible text because text is more likely to change.
-
-## Configuration without editing the test
-
-The defaults work when one emulator is attached. Environment variables let the
-same test target another device or Appium server:
+Run the WDIO migration smoke suite:
 
 ```bash
-ANDROID_UDID=emulator-5554 npm run test:android
+npm run test:android:wdio
 ```
 
-Available variables are `ANDROID_UDID`, `ANDROID_DEVICE_NAME`,
-`ANDROID_PLATFORM_VERSION`, `APPIUM_HOST`, `APPIUM_PORT`, `APPIUM_PROTOCOL`, and
-`APPIUM_PATH`. Avoid specifying optional capabilities until you need them: every
-extra constraint is another way session creation can fail.
+## Running on LambdaTest
 
-## What each file owns
+Set `EXECUTION_TARGET=lambdatest` and the LambdaTest variables in `.env`.
+LambdaTest provides the Appium server and device, so the local Appium command is
+not required.
+
+```bash
+npm run test:android:wdio
+```
+
+The WDIO runner still uses:
+
+```js
+runner: 'local'
+```
+
+This means the Node worker runs on the current machine. The configured hostname
+determines whether that worker connects to local Appium or LambdaTest.
+
+## Page Object Model
+
+A page object owns selectors and screen-level actions:
+
+```js
+export class LoginPage extends BasePage {
+  async login(username, password) {
+    await this.type(this.usernameSelector, username);
+    await this.type(this.passwordSelector, password);
+    await this.tap(this.loginButtonSelector);
+  }
+}
+```
+
+A flow coordinates pages:
+
+```js
+await authFlow.loginAs(
+  validUser.username,
+  validUser.password,
+);
+```
+
+State-recovery flows establish a known starting screen without restarting the
+Appium session. `DashboardFlow.reachDashboard()` first checks whether the
+dashboard is already loaded, then delegates navigation to the recognized active
+page and verifies that the dashboard loaded. At runtime only one screen is
+active; support for additional screens is added through shared navigation (for
+example, a Home tab) or a deterministic page-specific `returnToDashboard()`
+operation. Login remains an authentication concern and is handled by
+`AuthFlow`, not silently by `DashboardFlow`.
+
+A spec owns expected behavior:
+
+```js
+await expect(
+  dashboardPage.hero,
+).toBeDisplayed();
+```
+
+Prefer shared accessibility identifiers for Android and iOS. Android-only XPath
+such as `//android.widget.TextView[...]` should eventually be replaced or hidden
+behind platform-specific page-object locator selection.
+
+## Test data
+
+Use feature-scoped modules:
 
 ```text
-package.json                         commands and tool versions
-test/config/android.js               server address and Android capabilities
-test/pages/base.page.js              small reusable UI interaction helpers
-test/pages/*.page.js                 selectors and actions for one screen
-test/support/session.js              WebDriver session creation and cleanup
-test/specs/android/settings.spec.js  behavior and assertions
-.appium/                             local installed drivers (generated)
+test/data/auth.data.js
+test/data/dashboard.data.js
+test/data/users.data.js
 ```
 
-The configuration is outside the spec so future specs reuse one session recipe.
-The spec still owns its session lifecycle, which keeps this first setup explicit.
+- Fixed invalid inputs and expected messages belong to feature data files.
+- Existing environment accounts are read lazily through helpers such as
+  `getValidUser()`.
+- Fresh users or orders should later come from factories.
+- Generated runtime values stay in the current test or suite scope rather than
+  global variables or the WebDriver object.
 
-## Moving to your own APK
+`Object.freeze()` may be used for static shared data to prevent accidental
+mutation. It is a safeguard, not a performance requirement.
 
-Replace `appium:appPackage` and `appium:appActivity` with an `appium:app` path:
+## Waiting, polling, and repeated log entries
+
+These are different concepts:
+
+```text
+Timeout
+  -> maximum total duration to wait
+
+Polling interval
+  -> delay between condition checks during that wait
+
+Test retry
+  -> rerun the complete failed test
+```
+
+The base page currently uses:
 
 ```js
-'appium:app': '/absolute/path/to/app-debug.apk',
+await element.waitForDisplayed({ timeout });
 ```
 
-Appium then installs the build when creating the session. Later, put this value in
-an environment variable or CI secret/config rather than committing a machine-
-specific absolute path.
+WebdriverIO repeatedly issues `findElement` requests until the element becomes
+displayed or the timeout expires. Its default wait polling interval is short
+(commonly 100 ms), so a 20-second failed wait can produce many terminal and
+Appium log entries. This behavior occurs even when no Mocha/WDIO test retry is
+configured.
 
-## How iOS fits later
-
-The test runner and WebdriverIO client stay the same. Add an iOS config using:
+For mobile and cloud execution, use a deliberate polling interval such as
+500 ms:
 
 ```js
-platformName: 'iOS',
-'appium:automationName': 'XCUITest'
+await element.waitForDisplayed({
+  timeout,
+  interval: 500,
+  timeoutMsg:
+    `Element was not displayed: ${selector}`,
+});
 ```
 
-Then install Appium's XCUITest driver. iOS execution requires macOS, Xcode, and an
-iOS Simulator; real devices also require Apple signing. Keep Android and iOS
-capabilities separate, while sharing page objects and behavioral tests once your
-app exposes the same accessibility IDs on both platforms.
+Alternatively, define the WDIO runner default:
 
-Do not abstract both platforms on day one. First make one Android test reliable;
-extract shared helpers only after a second test reveals actual repetition.
-
-## Page Object Model used here
-
-The page-object boundary is intentionally strict:
-
-- A **page object** owns selectors and user actions such as `login()`.
-- A **spec** owns the scenario, test data, and assertions.
-- The **session helper** owns connection and cleanup mechanics.
-- The **configuration** owns which app and device Appium should start.
-
-This keeps selectors out of specs without turning page objects into a second test
-framework. Do not put `describe`, `it`, or assertions inside a page class.
-
-The login example is skipped until a real application is configured. Start an
-installed app with:
-
-```bash
-ANDROID_APP_PACKAGE=com.example.app \
-ANDROID_APP_ACTIVITY=.MainActivity \
-npm run test:android
+```js
+waitforTimeout: 10_000,
+waitforInterval: 500,
 ```
 
-Or ask Appium to install an APK:
+Explicit method options override the runner defaults. Standalone WebdriverIO
+does not automatically read `wdio.android.conf.js`, so shared wait constants or
+explicit options are needed while both architectures coexist.
 
-```bash
-ANDROID_APP=/absolute/path/to/app-debug.apk npm run test:android
+Do not solve normal rendering delays with fixed pauses such as:
+
+```js
+await browser.pause(2000);
 ```
 
-The selectors in `login.page.js` are example accessibility IDs. Replace them with
-the IDs exposed by your application.
+A fixed pause always consumes the full delay, even when the element becomes
+ready immediately. Conditional waits finish as soon as the expected state is
+reached.
 
-The app-under-test capabilities use `noReset: false` and `forceAppLaunch: true`.
-On Android this stops the app, clears its local data, and launches its configured
-activity for each new session. This makes a logged-out login screen the expected
-starting state. If your clean install first displays onboarding or permissions,
-handle those screens in the suite setup before waiting for the login page.
+WebdriverIO also automatically waits before direct interaction commands such as
+`click` and `setValue`. Keep explicit `waitForDisplayed` when visibility itself
+is part of the page readiness contract, but avoid stacking redundant waits.
+
+## Retry policy
+
+The project defines a runner-independent retry policy in:
+
+```text
+test/config/retry.js
+```
+
+Environment controls:
+
+```env
+TEST_RETRIES=0
+SPEC_RETRIES=0
+```
+
+The retry types are:
+
+```text
+TEST_RETRIES
+  -> Mocha retries the failed `it()` inside the current WDIO worker/session
+
+SPEC_RETRIES
+  -> WDIO reruns the complete spec file with a new browser/session instance
+```
+
+Defining a value in `retry.js` does not activate it automatically. The WDIO
+configuration must connect the policy:
+
+```js
+import {
+  retryPolicy,
+} from './test/config/retry.js';
+
+export const config = {
+  specFileRetries:
+    retryPolicy.specRetries,
+
+  specFileRetriesDelay: 2,
+  specFileRetriesDeferred: false,
+
+  mochaOpts: {
+    ui: 'bdd',
+    timeout: 120_000,
+    retries: retryPolicy.testRetries,
+  },
+};
+```
+
+When both values are enabled, Mocha first exhausts the test retries. WDIO retries
+the complete spec only if the spec still finishes as failed. With one test in
+one spec, both mechanisms can therefore apply, but they operate at different
+boundaries and are not triggered simultaneously.
+
+For example:
+
+```text
+TEST_RETRIES=1
+SPEC_RETRIES=1
+
+Spec attempt 1:
+  test attempt 1 fails
+  test attempt 2 fails
+
+Spec attempt 2 (new WDIO session):
+  test attempt 1 fails
+  test attempt 2 fails
+```
+
+This can produce up to four executions of the same test, so do not normally
+enable both while diagnosing retry behavior.
+
+The recommended initial policy is:
+
+```env
+TEST_RETRIES=1
+SPEC_RETRIES=0
+```
+
+Use spec retries later for infrastructure or session-level instability where a
+fresh worker/session can recover. Test retries should only be used for isolated,
+idempotent scenarios whose starting state is restored before every attempt.
+
+The central retry count can be overridden for an exceptional Mocha test:
+
+```js
+it('does not retry this destructive scenario', async function () {
+  this.retries(0);
+
+  // Test steps
+});
+```
+
+Use a regular `function` callback when accessing Mocha's `this` context. An arrow
+function does not provide the Mocha test context:
+
+```js
+it('incorrect override example', async () => {
+  this.retries(0);
+});
+```
+
+Per-test overrides should remain exceptional. The default retry policy belongs
+in the WDIO configuration so it is visible and consistent across the suite.
+
+### Retry setup must restore application state
+
+Mocha test retries run inside the current WDIO worker/session. A retry does not
+automatically create a fresh application session. Each suite must therefore
+restore the state required by the test in `beforeEach()`.
+
+For authentication tests:
+
+```text
+beforeEach()
+  -> ensure the app is logged out and Login is visible
+```
+
+For authenticated feature tests:
+
+```text
+before()
+  -> login once
+
+beforeEach()
+  -> ensure Dashboard/Home is visible
+```
+
+Avoid `browser.reloadSession()` before every test as the normal solution. It
+recreates the complete Appium session and is especially expensive on cloud
+devices. Reserve session reload/spec retry for broken Appium, device, or worker
+state that application-level recovery cannot repair.
+
+Retries should default to zero locally and be enabled deliberately. A test that
+only passes after repeated retries remains flaky and should be investigated.
+
+## Planned next steps
+
+Completed migration foundations:
+
+- WDIO runner and Mocha adapter are installed and configured.
+- The WDIO Login spec passes with WDIO-managed sessions and assertions.
+- Test-level and spec-file retry policies are configurable and verified.
+- Wait polling has a less noisy interval.
+
+Current transition state:
+
+- The Login WDIO spec still uses `browser.reloadSession()` in `beforeEach()`.
+- `AuthFlow.ensureLoggedOut()` has been started but is not usable yet because a
+  real UI logout operation and bounded recovery flow have not been implemented.
+- Keep the working session reload temporarily while state recovery is developed
+  and verified in small steps.
+
+Next steps:
+
+1. Add quick, non-throwing page-state checks to `BasePage`, `LoginPage`, and
+   `DashboardPage`.
+2. Model the application's real Profile/Logout controls in page objects.
+3. Complete `AuthFlow.logout()` and `ensureLoggedOut()`.
+4. Replace Login's per-test `reloadSession()` with `ensureLoggedOut()`.
+5. Add bounded Dashboard recovery for authenticated feature suites.
+6. Migrate Dashboard and lab specs to WDIO-managed sessions.
+7. Add a runner-independent TestRail API client and WDIO reporter adapter.
+8. Add iOS capabilities using XCUITest and shared accessibility identifiers.
