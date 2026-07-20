@@ -17,6 +17,14 @@ export class DashboardPage extends BasePage {
     return "~home_lab_12";
   }
 
+  get dragDropLabCardSelector() {
+    return "~home_lab_5";
+  }
+
+  get dragDropLabCard() {
+    return this.element(this.dragDropLabCardSelector);
+  }
+
   get authenticationLabCard() {
     return this.element(this.authenticationLabCardSelector);
   }
@@ -97,6 +105,25 @@ export class DashboardPage extends BasePage {
 
   async waitUntilLoaded() {
     await this.waitUntilDisplayed(this.heroSelector, 20_000);
+  }
+
+  async openDragDropLab() {
+    const scrollContainer = await this.scrollContainer;
+    const card = await this.dragDropLabCard;
+
+    await card.scrollIntoView({
+      direction: "down",
+      maxScrolls: 6,
+      percent: 0.8,
+      duration: 600,
+      scrollableElement: scrollContainer,
+    });
+
+    await card.waitForDisplayed({
+      timeout: 10_000,
+    });
+
+    await card.click();
   }
 
   async isLoaded() {

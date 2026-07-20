@@ -1,5 +1,6 @@
 import { selectedCapabilities, selectedServer } from "./test/config/android.js";
 import { retryPolicy } from "./test/config/retry.js";
+import { rmSync } from "node:fs";
 
 export const config = {
   runner: "local",
@@ -9,7 +10,7 @@ export const config = {
   specs: [
     // './test/specs/android/**/*.spec.js',
     // specs: [
-    // "./test/specs/wdio/android/authentication-lab.spec.js"
+    // "./test/specs/wdio/android/dragDrop-lab.spec.js"
     "./test/specs/wdio/android/**/*.spec.js",
     // ],
   ],
@@ -30,10 +31,38 @@ export const config = {
   specFileRetriesDeferred: false, //Retry the failed spec immediately instead of putting it at the end of the execution queue.
 
   framework: "mocha",
-  reporters: ["spec"],
+  reporters: [
+    "spec",
+    [
+      "allure",
+      {
+        outputDir: "./reports/allure-results",
+        disableWebdriverStepsReporting: true, //shows findElement,isDisplayed,click,getText etc
+        disableWebdriverScreenshotsReporting: false,
+        addConsoleLogs: true,
+        reportedEnvironmentVars: {
+          EXECUTION_TARGET: process.env.EXECUTION_TARGET ?? "local",
+          PLATFORM: selectedCapabilities.platformName,
+        },
+      },
+    ],
+  ],
   mochaOpts: {
     ui: "bdd",
     timeout: 120_000,
     retries: retryPolicy.testRetries,
+  },
+
+  onPrepare() {
+    rmSync("./reports/allure-results", {
+      recursive: true,
+      force: true,
+    });
+  },
+
+  afterTest: async function (test, context, { passed }) {
+    if (!passed) {
+      await browser.takeScreenshot();
+    }
   },
 };

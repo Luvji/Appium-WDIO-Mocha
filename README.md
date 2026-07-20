@@ -15,6 +15,9 @@ framework redesign.
 
 ## Architecture
 
+Troubleshooting notes from the framework build are maintained in
+[`docs/problem-solution-guide.md`](docs/problem-solution-guide.md).
+
 ### Current standalone suite
 
 ```text
