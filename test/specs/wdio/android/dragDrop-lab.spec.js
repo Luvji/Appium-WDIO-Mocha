@@ -7,6 +7,7 @@ import { getValidUser } from "../../../data/users.data.js";
 // import { authData } from "../../../data/auth.data.js";
 import { DashboardFlow } from "../../../flows/dashboard.flow.js";
 import { dragDropData } from "../../../data/dragDrop.data.js";
+import { BottomNavigation } from "../../../components/bottom-navigation.component.js";
 
 describe("Drag drop Lab", () => {
   let loginPage;
@@ -15,6 +16,7 @@ describe("Drag drop Lab", () => {
   let authFlow;
   let dashboardFlow;
   let dragDropLabPage;
+  let bottomNavigation;
   const user = getValidUser();
 
   before(async () => {
@@ -22,9 +24,10 @@ describe("Drag drop Lab", () => {
     dashboardPage = new DashboardPage(browser);
     authenticationLabPage = new AuthenticationLabPage(browser);
     dragDropLabPage = new DragDropLabPage(browser);
+    bottomNavigation = new BottomNavigation(browser);
 
-    dashboardFlow = new DashboardFlow(loginPage, dashboardPage, authenticationLabPage);
-    authFlow = new AuthFlow(loginPage, dashboardPage, authenticationLabPage);
+    dashboardFlow = new DashboardFlow(loginPage, dashboardPage, bottomNavigation);
+    authFlow = new AuthFlow(loginPage, dashboardPage, authenticationLabPage, bottomNavigation);
   });
 
   beforeEach(async () => {

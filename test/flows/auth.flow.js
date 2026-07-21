@@ -1,8 +1,9 @@
 export class AuthFlow {
-  constructor(loginPage, dashboardPage, authenticationLabPage) {
+  constructor(loginPage, dashboardPage, authenticationLabPage, bottomNavigation) {
     this.loginPage = loginPage;
     this.dashboardPage = dashboardPage;
     this.authenticationLabPage = authenticationLabPage;
+    this.bottomNavigation = bottomNavigation;
   }
 
   async loginAs(username, password) {
@@ -32,19 +33,17 @@ export class AuthFlow {
   }
 
   async ensureLoggedIn(username, password) {
-    if (await this.dashboardPage.isLoaded()) {
-      return;
-    }
-
-    if (await this.authenticationLabPage.isLoaded()) {
-      return;
-    }
-
     if (await this.loginPage.isLoaded()) {
       await this.loginAs(username, password);
       return;
     }
 
-    throw new Error("Unable to establish logged-in state: Login, Dashboard, and Authentication Lab were not detected");
+    if ((await this.dashboardPage.isLoaded()) || (await this.bottomNavigation.isDisplayed())) {
+      return;
+    }
+
+    throw new Error(
+      "Unable to establish logged-in state: Login and authenticated application navigation were not detected",
+    );
   }
 }

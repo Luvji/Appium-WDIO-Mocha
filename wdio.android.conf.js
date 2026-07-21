@@ -61,8 +61,20 @@ export const config = {
   },
 
   afterTest: async function (test, context, { passed }) {
-    if (!passed) {
+    if (passed) {
+      return;
+    }
+
+    try {
+      const currentContext = await browser.getContext();
+
+      if (currentContext !== "NATIVE_APP") {
+        await browser.switchContext("NATIVE_APP");
+      }
+
       await browser.takeScreenshot();
+    } catch (error) {
+      console.warn(`Could not capture failure screenshot: ${error.message}`);
     }
   },
 };

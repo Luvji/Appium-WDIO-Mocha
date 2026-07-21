@@ -5,6 +5,7 @@ import { AuthFlow } from "../../../flows/auth.flow.js";
 import { getValidUser } from "../../../data/users.data.js";
 import { authData } from "../../../data/auth.data.js";
 import { DashboardFlow } from "../../../flows/dashboard.flow.js";
+import { BottomNavigation } from "../../../components/bottom-navigation.component.js";
 
 describe("Authentication Lab", () => {
   let loginPage;
@@ -12,15 +13,17 @@ describe("Authentication Lab", () => {
   let authenticationLabPage;
   let authFlow;
   let dashboardFlow;
+  let bottomNavigation;
   const user = getValidUser();
 
   before(async () => {
     loginPage = new LoginPage(browser);
     dashboardPage = new DashboardPage(browser);
     authenticationLabPage = new AuthenticationLabPage(browser);
+    bottomNavigation = new BottomNavigation(browser);
 
-    dashboardFlow = new DashboardFlow(loginPage, dashboardPage, authenticationLabPage);
-    authFlow = new AuthFlow(loginPage, dashboardPage, authenticationLabPage);
+    dashboardFlow = new DashboardFlow(loginPage, dashboardPage, bottomNavigation);
+    authFlow = new AuthFlow(loginPage, dashboardPage, authenticationLabPage, bottomNavigation);
   });
 
   beforeEach(async () => {

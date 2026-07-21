@@ -5,6 +5,8 @@ import { AuthFlow } from "../../../flows/auth.flow.js";
 import { getValidUser } from "../../../data/users.data.js";
 import { authData } from "../../../data/auth.data.js";
 import { AuthenticationLabPage } from "../../../pages/authentication-lab.page.js";
+import { BottomNavigation } from "../../../components/bottom-navigation.component.js";
+
 
 describe("WDIO Login Smoke", function () {
   let loginPage;
@@ -12,6 +14,8 @@ describe("WDIO Login Smoke", function () {
   let authFlow;
   let validUser;
   let authenticationLabPage;
+  let bottomNavigation;
+
 
   beforeEach(async function () {
       await browser.reloadSession();
@@ -19,8 +23,10 @@ describe("WDIO Login Smoke", function () {
     loginPage = new LoginPage(browser);
     dashboardPage = new DashboardPage(browser);
     authenticationLabPage = new AuthenticationLabPage(browser);
+    bottomNavigation = new BottomNavigation(browser);
 
-    authFlow = new AuthFlow(loginPage, dashboardPage,authenticationLabPage);
+
+    authFlow = new AuthFlow(loginPage, dashboardPage,authenticationLabPage, bottomNavigation);
 
     validUser = getValidUser();
   });

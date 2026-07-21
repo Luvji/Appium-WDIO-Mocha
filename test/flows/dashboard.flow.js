@@ -1,13 +1,8 @@
 export class DashboardFlow {
-  constructor(
-    loginPage,
-    dashboardPage,
-    authenticationLabPage,
-  ) {
+  constructor(loginPage, dashboardPage, bottomNavigation) {
     this.loginPage = loginPage;
     this.dashboardPage = dashboardPage;
-    this.authenticationLabPage = authenticationLabPage;
-    // this.controlsPage = controlsPage;
+    this.bottomNavigation = bottomNavigation;
   }
 
   async reachDashboard() {
@@ -15,26 +10,16 @@ export class DashboardFlow {
       return;
     }
 
-    if (await this.authenticationLabPage.isLoaded()) {
-      await this.authenticationLabPage.returnToDashboard();
+    if (await this.loginPage.isLoaded()) {
+      throw new Error("Cannot reach Dashboard because the user is logged out");
+    }
+
+    if (await this.bottomNavigation.isDisplayed()) {
+      await this.bottomNavigation.goToDashboard();
       await this.dashboardPage.waitUntilLoaded();
       return;
     }
 
-    // if (await this.controlsPage.isLoaded()) {
-    //   await this.controlsPage.returnToDashboard();
-    //   await this.dashboardPage.waitUntilLoaded();
-    //   return;
-    // }
-
-    if (await this.loginPage.isLoaded()) {
-      throw new Error(
-        "Cannot reach Dashboard because the user is logged out"
-      );
-    }
-
-    throw new Error(
-      "Cannot reach Dashboard: current application page is unknown"
-    );
+    throw new Error("Cannot reach Dashboard: current application page is unknown");
   }
 }

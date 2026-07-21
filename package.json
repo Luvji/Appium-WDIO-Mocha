@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Minimal Android Appium tests with Mocha and WebdriverIO",
   "scripts": {
-    "appium": "APPIUM_HOME=$PWD/.appium appium",
+    "appium": "APPIUM_HOME=$PWD/.appium appium --allow-insecure=uiautomator2:chromedriver_autodownload",
     "driver:android:install": "APPIUM_HOME=$PWD/.appium appium driver install uiautomator2",
     "driver:list": "APPIUM_HOME=$PWD/.appium appium driver list --installed",
     "doctor:android": "APPIUM_HOME=$PWD/.appium appium driver doctor uiautomator2",

@@ -522,6 +522,48 @@ configuration values when diagnosing.
 
 ## Final rule: retry is not a repair mechanism
 
+## WebView context is visible but switching reports no compatible ChromeDriver
+
+**Problem**
+
+Inspector or WDIO listed a WebView context, but switching to it failed with:
+
+```text
+No Chromedriver found that can automate Chrome '150.0.7871'
+```
+
+The Inspector consequently continued showing native Android XML instead of an
+HTML DOM.
+
+**Cause**
+
+UiAutomator2 discovers Android WebViews in native mode, but it delegates HTML
+automation to ChromeDriver. The available ChromeDriver binaries did not support
+the WebView engine's Chrome major version. Discovering a context and starting a
+ChromeDriver session for it are separate operations.
+
+**Solution**
+
+For a trusted local development server, start Appium with only the scoped
+automatic-download feature enabled:
+
+```bash
+appium --allow-insecure=uiautomator2:chromedriver_autodownload
+```
+
+Restart Appium and create a new Inspector/WDIO session. The first context switch
+may download a matching binary and therefore needs network access. Do not use
+global relaxed security merely to enable this one feature.
+
+For controlled CI, manually provision and cache a compatible ChromeDriver and
+provide its server-side path with `appium:chromedriverExecutable` or its folder
+with `appium:chromedriverExecutableDir`. Cloud providers manage server binaries
+on their own infrastructure, so a local filesystem path must not be sent to a
+cloud session.
+
+After switching succeeds, Inspector's context selector changes from
+`NATIVE_APP` to `WEBVIEW_...`, and its source changes from Android XML to HTML.
+
 ## Allure Java fails with a Snap `libpthread` symbol error
 
 **Problem**
@@ -593,3 +635,44 @@ Retries are appropriate for known, bounded infrastructure instability. They do
 not fix syntax errors, wrong application builds, wrong selectors, undefined
 dependencies, inaccessible canvas content, or missing state preparation. A
 deterministic failure should fail once and be corrected at its cause.
+
+## A second WebView test fails with `target window already closed`
+
+**Problem**
+
+The first test switched to `WEBVIEW_...` and passed. Before the second test,
+the suite navigated to another native screen and then reopened the WebView.
+The next HTML lookup failed with:
+
+```text
+no such window: target window already closed
+from unknown error: web view not found
+```
+
+The failure-screenshot hook then reported the same error while taking a
+screenshot.
+
+**Cause**
+
+Leaving the screen destroyed its underlying Chromium window. Reopening the
+screen exposed an Appium context with the same `WEBVIEW_...` name, but the
+ChromeDriver connection could still refer to the destroyed browser window.
+An Appium context name and a Chromium window are related but are not the same
+lifecycle object.
+
+The screenshot error was secondary: the failure hook attempted a WebDriver
+screenshot while the session was still attached to the invalid WebView.
+
+**Solution**
+
+Do not unnecessarily leave and reopen the WebView between tests in the same
+session. Establish login and open WebView Lab once in the suite's `before`
+hook, return to `NATIVE_APP` after each test, and switch back to the existing
+WebView at the beginning of each test. Reset only the form state that a test
+changes.
+
+Make failure evidence collection defensive. Before taking an Appium screenshot,
+attempt to switch to `NATIVE_APP`; wrap evidence collection in `try/catch` so a
+screenshot failure is logged but does not replace or obscure the test's real
+error. If the application intentionally recreates WebViews as part of the
+scenario, a fresh Appium session is the safest isolation boundary.

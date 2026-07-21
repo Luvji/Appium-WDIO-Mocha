@@ -103,6 +103,33 @@ export class DashboardPage extends BasePage {
     await card.click();
   }
 
+  get webViewLabCardSelector() {
+    return "~home_lab_6";
+  }
+
+  get webViewLabCard() {
+    return this.element(this.webViewLabCardSelector);
+  }
+
+  async openWebViewLab() {
+    const scrollContainer = await this.scrollContainer;
+    const card = await this.webViewLabCard;
+
+    await card.scrollIntoView({
+      direction: "down",
+      maxScrolls: 6,
+      percent: 0.8,
+      duration: 600,
+      scrollableElement: scrollContainer,
+    });
+
+    await card.waitForDisplayed({
+      timeout: 10_000,
+    });
+
+    await card.click();
+  }
+
   async waitUntilLoaded() {
     await this.waitUntilDisplayed(this.heroSelector, 20_000);
   }
